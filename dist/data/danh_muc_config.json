@@ -1,0 +1,20 @@
+{
+  "Ăn uống": {
+    "budget": 3000000,
+    "enabled": true,
+    "daily_track": true,
+    "daily_times": 0
+  },
+  "Xăng xe": {
+    "budget": 500000,
+    "enabled": true,
+    "daily_track": true,
+    "daily_times": 0
+  },
+  "Lặt vặt": {
+    "budget": 500000,
+    "enabled": true,
+    "daily_track": false,
+    "daily_times": 0
+  }
+}
