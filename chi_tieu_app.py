@@ -255,10 +255,10 @@ class ExpenseApp(ctk.CTk):
             mt = os.path.getmtime(CONFIG_PATH)
         except OSError:
             mt = 0
-        if mt != self._config_mtime or not hasattr(self, 'config'):
-            self.config = load_config()
+        if mt != self._config_mtime or not hasattr(self, '_cfg'):
+            self._cfg = load_config()
             self._config_mtime = mt
-        self.active_budget = {c: i["budget"] for c, i in self.config.items() if i["enabled"]}
+        self.active_budget = {c: i["budget"] for c, i in self._cfg.items() if i["enabled"]}
         self.active_cats = list(self.active_budget.keys())
         self.total_budget = sum(self.active_budget.values())
         if hasattr(self, "lbl_budget"):
@@ -373,7 +373,7 @@ class ExpenseApp(ctk.CTk):
         scroll.grid_columnconfigure(0, weight=1)
         # Tăng tốc scroll (mặc định chỉ 1 unit, đổi thành 6)
         def _fast_scroll(event):
-            scroll._parent_canvas.yview_scroll(int(-1 * (event.delta / 120) * 40), "units")
+            scroll._parent_canvas.yview_scroll(int(-1 * (event.delta / 120) * 80), "units")
         scroll._parent_canvas.bind_all("<MouseWheel>", _fast_scroll)
         return scroll
 
@@ -1152,7 +1152,7 @@ class ExpenseApp(ctk.CTk):
         dim = days_in_month(month, year)
 
         # Lấy danh mục được theo dõi
-        tracked = {cat: info for cat, info in self.config.items()
+        tracked = {cat: info for cat, info in self._cfg.items()
                    if info.get("daily_track") and info.get("enabled")}
 
         if not tracked:
@@ -1254,7 +1254,7 @@ class ExpenseApp(ctk.CTk):
         dlg.configure(fg_color=COL["card"])
         dlg.resizable(False, False)
         dlg.grab_set()
-        dw, dh = 520, min(560, 90 + 50 * len(self.config) + 60)
+        dw, dh = 520, min(560, 90 + 50 * len(self._cfg) + 60)
         dx = self.winfo_x() + (self.winfo_width() - dw) // 2
         dy = self.winfo_y() + (self.winfo_height() - dh) // 2
         dlg.geometry(f"{dw}x{dh}+{dx}+{dy}")
@@ -1271,7 +1271,7 @@ class ExpenseApp(ctk.CTk):
 
         switches = {}
         time_entries = {}
-        for cat, info in self.config.items():
+        for cat, info in self._cfg.items():
             if not info.get("enabled"):
                 continue
             rf = ctk.CTkFrame(scroll, fg_color="transparent")
@@ -1299,14 +1299,14 @@ class ExpenseApp(ctk.CTk):
 
         def save_track():
             for cat, sw in switches.items():
-                self.config[cat]["daily_track"] = bool(sw.get())
+                self._cfg[cat]["daily_track"] = bool(sw.get())
                 try:
                     t = int(time_entries[cat].get())
                     if t < 0: t = 0
                 except (ValueError, KeyError):
                     t = 0
-                self.config[cat]["daily_times"] = t
-            save_config(self.config)
+                self._cfg[cat]["daily_times"] = t
+            save_config(self._cfg)
             self._reload_config()
             dlg.destroy()
             self.show_du_am()
@@ -1336,7 +1336,7 @@ class ExpenseApp(ctk.CTk):
 
         cols = ("Danh mục", "Ngân sách / tháng", "Trạng thái", "Dư/Âm")
         tree = ttk.Treeview(tree_frame, columns=cols, show="headings",
-                             height=max(8, len(self.config)), style="Dark.Treeview")
+                             height=max(8, len(self._cfg)), style="Dark.Treeview")
         for c in cols:
             tree.heading(c, text=c)
         tree.column("Danh mục", width=180, anchor="w")
@@ -1365,7 +1365,7 @@ class ExpenseApp(ctk.CTk):
             nonlocal cat_keys
             cat_keys.clear()
             tree.delete(*tree.get_children())
-            for cat, info in self.config.items():
+            for cat, info in self._cfg.items():
                 st = "🟢 Bật" if info["enabled"] else "🔴 Tắt"
                 dt = "✅" if info.get("daily_track") else "—"
                 tg = "on" if info["enabled"] else "off"
@@ -1388,8 +1388,8 @@ class ExpenseApp(ctk.CTk):
             if not c:
                 messagebox.showwarning("Chọn dòng", "Hãy chọn 1 danh mục!")
                 return
-            self.config[c]["enabled"] = not self.config[c]["enabled"]
-            save_config(self.config)
+            self._cfg[c]["enabled"] = not self._cfg[c]["enabled"]
+            save_config(self._cfg)
             self._reload_config()
             refresh()
 
@@ -1407,8 +1407,8 @@ class ExpenseApp(ctk.CTk):
                 return
             if not messagebox.askyesno("Xác nhận", f"Xóa danh mục '{c}'?"):
                 return
-            del self.config[c]
-            save_config(self.config)
+            del self._cfg[c]
+            save_config(self._cfg)
             self._reload_config()
             refresh()
 
@@ -1445,7 +1445,7 @@ class ExpenseApp(ctk.CTk):
 
             ctk.CTkLabel(dlg, text="Ngân sách/tháng:", font=("Segoe UI", 14),
                          text_color=COL["fg"]).grid(row=1, column=0, padx=18, pady=8, sticky="w")
-            b_val = str(self.config[edit_cat]["budget"]) if edit_cat else ""
+            b_val = str(self._cfg[edit_cat]["budget"]) if edit_cat else ""
             b_var = ctk.StringVar(value=b_val)
             ctk.CTkEntry(dlg, textvariable=b_var, font=("Segoe UI", 14),
                          fg_color=COL["input"], border_width=0, corner_radius=8, height=36,
@@ -1467,16 +1467,16 @@ class ExpenseApp(ctk.CTk):
                     return
 
                 if edit_cat and name != edit_cat:
-                    old = self.config.pop(edit_cat)
-                    self.config[name] = {"budget": b, "enabled": old["enabled"]}
+                    old = self._cfg.pop(edit_cat)
+                    self._cfg[name] = {"budget": b, "enabled": old["enabled"]}
                 elif edit_cat:
-                    self.config[edit_cat]["budget"] = b
+                    self._cfg[edit_cat]["budget"] = b
                 else:
-                    if name in self.config:
+                    if name in self._cfg:
                         messagebox.showwarning("Trùng", f"'{name}' đã tồn tại!", parent=dlg)
                         return
-                    self.config[name] = {"budget": b, "enabled": True}
-                save_config(self.config)
+                    self._cfg[name] = {"budget": b, "enabled": True}
+                save_config(self._cfg)
                 self._reload_config()
                 refresh()
                 dlg.destroy()
